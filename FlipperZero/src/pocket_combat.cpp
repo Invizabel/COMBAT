@@ -4,82 +4,90 @@
 #include <gui/gui.h>
 #include <stdlib.h>
 
-int SCORE = 0;
-int HIGH_SCORE = 10;
-char score_str[16];
+char player_str[16];
+char enemy_str[16];
+int SCALE = 2;
 
-int snacks[13][5];
 bool moving_right = false;
 bool moving_left = false;
 
-int player_x = 13; // 64 / 5
-int player_y = 54;
+int player_x = 26; // 128 / 5 = 25.6
+int player_y = 32;
+int player_hp = 10;
 
-// player coordinates for drawing
+int enemy_x = 102; // 25.6 * 4 = 102.4
+int enemy_y = 32;
+int enemy_hp = 10;
+
+int player_sword[2] = {player_x+1, player_y};
+int enemy_sword[2] = {enemy_x-1, enemy_y};
+
+int random_enemy = rand() % 2 + 1;
+bool is_first = true;
+int choice = 1;
+
+int box_offset = 1;
+
+// jellyfish coordinates for drawing
 int jellyfish[][2] = {{3,2},{4,2},{5,2},{6,2},{7,2},{8,2},{2,3},{9,3},{2,4},{9,4},{3,5},{4,5},{5,5},{6,5},{7,5},{8,5},{3,6},{6,6},{8,6},{4,7},{6,7},{9,7},{2,8},{4,8},{7,8},{3,9}};
 int fish[][2] = {{7,4},{8,4},{3,5},{4,5},{6,5},{9,5},{3,6},{5,6},{10,6},{3,7},{5,7},{10,7},{3,8},{4,8},{6,8},{9,8},{7,9},{8,9}};
 
-
 void collide_rect()
 {
-    for (int x = 0; x < 8; x++)
-    {
-        for (int y = 0; y < 8; y++)
-        {
-            int ball_left = ball_x - 4;
-            int ball_top = ball_y - 4;
-            int ball_right = ball_x + 4;
-            int ball_bottom = ball_y + 4;
-            
-            int fish_left = fish_x - 8;
-            int fish_top = fish_y - 8;
-            int fish_right = fish_x + 8;
-            int fish_bottom = fish_y + 8;
-            
-            bool fish_collision = fish_left <= ball_right && fish_right >= ball_left && fish_top <= ball_bottom && fish_bottom >= ball_top;
+    int player_sword[2] = {player_x+1, player_y};
+    int enemy_sword[2] = {enemy_x-1, enemy_y};
+    
+    int player_sword_left = player_sword[0] - 8;
+    int player_sword_top = player_sword[1] - 8;
+    int player_sword_right = player_sword[0] + 8;
+    int player_sword_bottom = player_sword[1] + 8;
+    
+    int enemy_sword_left = enemy_sword[0] - 8;
+    int enemy_sword_top = enemy_sword[1] - 8;
+    int enemy_sword_right = enemy_sword[0] + 8;
+    int enemy_sword_bottom = enemy_sword[1] + 8;
+    
+    bool sword_collision = enemy_sword_left <= player_sword_right && enemy_sword_right >= player_sword_left && enemy_sword_top <= player_sword_bottom && enemy_sword_bottom >= player_sword_top;
 
-            if (fish_collision)
-            {
-                snacks[x][y] = 0;
-            }
+    if (sword_collision)
+    {
+        if (is_first && enemy_hp > 0)
+        {
+            enemy_hp -= 1;
+        }
+
+        if (!is_first && player_hp > 0)
+        {
+            player_hp -= 1;
         }
     }
 }
 
 
-void draw_player(Canvas* canvas)
-{   
-    int array_size = sizeof(player) / sizeof(player[0]);
+void draw_player(Canvas* canvas, int data[][2], int array_size)
+{
     for(int i = 0; i < array_size; i++)
     {
-        int x = player[i][0];
-        int y = player[i][1];
-        if(x != 0 && y != 0)
+        int x = player_x + data[i][0] * SCALE;
+        int y = player_y + data[i][1] * SCALE;
+
+        if(x >= 0 && y >= 0 && x < 128 && y < 64)
         {
-            canvas_draw_dot(canvas, x + player_x, y + player_y);
+            canvas_draw_box(canvas, x, y, SCALE, SCALE);
         }
     }
 }
 
-void draw_fish(Canvas* canvas)
+void draw_enemy(Canvas* canvas, int data[][2], int array_size)
 {
-    for (int x = 0; x < 13; x++)
+    for(int i = 0; i < array_size; i++)
     {
-        for (int y = 0; y < 5; y++)
+        int x = enemy_x + data[i][0] * SCALE;
+        int y = enemy_y + data[i][1] * SCALE;
+
+        if(x >= 0 && y >= 0 && x < 128 && y < 64)
         {
-            if (snacks[x][y] == 1)
-            {
-                int array_size = sizeof(fish) / sizeof(fish[0]);
-                for(int i = 0; i < array_size; i++)
-                {
-                    if(x != 0 && y != 0)
-                    {
-                        int xer = fish[i][0];
-                        int yer = fish[i][1];
-                        canvas_draw_dot(canvas,(((128 - (8 * fish_x + 7 * 4)) / 2) + x * (fish_x + 4) + xer) - 30, (4 + y * (fish_y + 4) + yer) - 10);
-                    }
-                }
-            }
+            canvas_draw_box(canvas, x, y, SCALE, SCALE);
         }
     }
 }
@@ -91,14 +99,12 @@ static void input_callback(InputEvent* event, void* context)
     {
         if (event->key == InputKeyLeft)
         {
-            moving_right = false;
-            moving_left = true;
+             player_x -= 2;
         }
 
         if (event->key == InputKeyRight)
         {
-            moving_right = true;
-            moving_left = false;
+            player_x += 2;
         }
     }
     
@@ -110,45 +116,40 @@ static void input_callback(InputEvent* event, void* context)
 static void draw_callback(Canvas* canvas, void* context)
 {
     UNUSED(context);
-    canvas_clear(canvas);
-    collide_rect();
-    draw_player(canvas);
-    draw_fish(canvas);
-
     
-    if (moving_right && player_x < 114)
+    canvas_clear(canvas);
+
+    if (choice == 1)
     {
-        player_x += 4;
+        draw_player(canvas,fish,sizeof(fish) / sizeof(fish[0]));
+    }
+    if (choice == 2)
+    {
+        draw_player(canvas,jellyfish,sizeof(jellyfish) / sizeof(jellyfish[0]));
     }
 
-    if (moving_left && player_x > 6)
-    {
-        player_x -= 4;
+    if (random_enemy == 1)
+    { 
+        draw_enemy(canvas,fish,sizeof(fish) / sizeof(fish[0]));
     }
-
-    if (ball_y == 2)
+    if (random_enemy == 2)
     {
-        HIGH_SCORE = 10;
-
-        SCORE = 0;
+        draw_enemy(canvas,jellyfish,sizeof(jellyfish) / sizeof(jellyfish[0]));
     }
+    
+    collide_rect();
 
-    snprintf(score_str, sizeof(score_str), "%d", SCORE);
-    canvas_draw_str(canvas,2,8,score_str);
+    snprintf(player_str, sizeof(player_str), "%d", player_hp);
+    canvas_draw_str(canvas,2,8,player_str);
+
+    snprintf(enemy_str, sizeof(enemy_str), "%d", enemy_hp);
+    canvas_draw_str(canvas,112,8,enemy_str);
 
     canvas_commit(canvas);
 }
 
 int main()
-{
-    for (int i = 0; i < 13; i++)
-    {
-        for (int j = 0; j < 5; j++)
-        {
-            snacks[i][j] = 1;
-        }
-    }
-    
+{   
     DateTime dt;
     furi_hal_rtc_get_datetime(&dt);
     unsigned int seed = dt.hour * 3600 + dt.minute * 60 + dt.second;
