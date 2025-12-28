@@ -1,0 +1,12 @@
+App(
+    appid="combat",
+    name="Combat",
+    apptype=FlipperAppType.EXTERNAL,
+    entry_point="main",
+    fap_description="Combat is a fast paced fighting game! Controls- Move: Left/Right | Uppercut: Up | Undercut: Down | Special: Center",
+    fap_author="Invizabel",
+    fap_weburl="https://github.com/Invizabel/combat",
+    fap_icon="assets/icon.png",
+    fap_category="Games",
+    fap_version="1.0"
+)
